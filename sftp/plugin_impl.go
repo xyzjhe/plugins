@@ -117,7 +117,7 @@ func (p *PluginImpl) connectSftp() error {
 			// ssh.PublicKeys(signer),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Timeout:         time.Second,
+		Timeout:         time.Second * 30,
 	}
 	c, chans, reqs, err := ssh.NewClientConn(conn, addr, config)
 	if err != nil {

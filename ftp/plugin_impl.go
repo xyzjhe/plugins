@@ -141,7 +141,7 @@ func (p *PluginImpl) connectFtp() error {
 			slog.Error("dial failed", "err", err)
 			return nil, err
 		}
-		return NewWrapConn(conn, time.Second*5), nil
+		return NewWrapConn(conn, time.Second*10), nil
 	}))
 	if err != nil {
 		return err

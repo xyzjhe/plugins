@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/go-uuid"
+
 	_ "github.com/labulakalia/wazero_net/wasi/http" // if you need http import this
 	"github.com/medianexapp/plugin_api/httpclient"
 	"github.com/medianexapp/plugin_api/plugin"
@@ -20,16 +22,19 @@ import (
 )
 
 const (
-	userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) quark-cloud-drive/3.20.0 Chrome/112.0.5615.165 Electron/24.1.3.8 Safari/537.36 Channel/pckk_other_ch"
+	userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) quark-cloud-drive/3.24.0 Chrome/112.0.5615.165 Electron/24.1.3.8 Safari/537.36 Channel/pckk_other_ch"
 	referer   = "https://pan.quark.cn"
 	api       = "https://drive-pc.quark.cn/1/clouddrive"
 	pr        = "ucpro"
+	clientid  = "386"
 )
 
 type PluginImpl struct {
 	cookie    string
+	cookies   []*http.Cookie
 	client    *httpclient.Client
-	ratelimit *ratelimit.RateLimit
+	hb        *httpclient.Builder
+	ratelimit *ratelimit.RateLimit // move to httpclient
 }
 
 func NewPluginImpl() *PluginImpl {
@@ -40,7 +45,11 @@ func NewPluginImpl() *PluginImpl {
 			Duration: time.Second,
 		},
 	}
+
 	return &PluginImpl{
+		hb: httpclient.NewBuilder().SetUserAgent(userAgent).
+			SetHeader("referer", "https://pan.quark.cn/").
+			SetHeader("origin", "https://pan.quark.cn/").SetQueryParam("pr", "ucpro").SetQueryParam("fr", "pc").SetQueryParam("platform", "pc"),
 		client:    httpclient.NewClient(httpclient.WithUserAgent(userAgent)),
 		ratelimit: ratelimit.New(limitConfigMap),
 	}
@@ -51,12 +60,111 @@ func (p *PluginImpl) PluginId() (string, error) {
 	return "quark", nil
 }
 
+func (p *PluginImpl) checkQrcode(param string) ([]*http.Cookie, error) {
+	checkQrurl := "https://uop.quark.cn/cas/ajax/getServiceTicketByQrcodeToken"
+
+	rqId, err := uuid.GenerateUUID()
+	if err != nil {
+		return nil, err
+	}
+	u := url.Values{}
+	u.Add("client_id", clientid)
+	u.Add("v", "1.2")
+	u.Add("request_id", rqId)
+	u.Add("token", param)
+	u.Add("uc_param_str", "utprfr")
+	u.Add("ut", "NekR9SeMxs0xvu0ZMJEKfpU4YeEziTZ%2FBQ3rb11LvaF1VQ%3D%3D")
+	u.Add("pr", "ucpro")
+	u.Add("fr", "pc")
+	ticket := &ServiceTocket{}
+	resp := &Response{
+		Data: ticket,
+	}
+	respHeader := http.Header{}
+	err = p.hb.SetQueryParams(u).Get(checkQrurl).GetRespHeader(&respHeader).JSONResponse(&resp)
+	if err != nil {
+		return nil, err
+	}
+	p.hb.ParseCookie(respHeader)
+
+	if resp.Status == 50004001 {
+		slog.Warn("not get res", "msg", resp)
+		return nil, nil
+	}
+	if resp.Status == 50004002 {
+		slog.Warn("token is valid", "msg", resp.Message)
+		return nil, errors.New(resp.Message)
+	}
+	// TODO set cookie
+	respHeader3 := http.Header{}
+	_, err = p.hb.
+		Get("https://pan.quark.cn/account/info").GetRespHeader(&respHeader3).
+		BytesResponse()
+	if err != nil {
+		slog.Error("get account info failed", "err", err)
+		return nil, err
+	}
+	respHeader2 := http.Header{}
+	// https://pan.quark.cn/account/info?st=sta2c633397o8vz9iio35n2ki6ys5z84&lw=scan
+	_, err = p.hb.SetQueryParam("st", ticket.Members.Ticket).
+		SetQueryParam("lw", "scan").
+		Get("https://pan.quark.cn/account/info").
+		GetRespHeader(&respHeader2).BytesResponse()
+	if err != nil {
+		slog.Error("get account info failed", "err", err)
+		return nil, err
+	}
+	p.hb.ParseCookie(respHeader2)
+	return p.hb.GetCookies(), nil
+
+}
+
+func (p *PluginImpl) getQrcodeToken() (string, error) {
+	qrcodeUrl := "https://uop.quark.cn/cas/ajax/getTokenForQrcodeLogin"
+
+	rqId, err := uuid.GenerateUUID()
+	if err != nil {
+		return "", err
+	}
+
+	u := url.Values{}
+	u.Add("client_id", clientid)
+	u.Add("v", "1.2")
+	u.Add("request_id", rqId)
+	u.Add("uc_param_str", "utprfr")
+	u.Add("ut", "NekR9SeMxs0xvu0ZMJEKfpU4YeEziTZ%2FBQ3rb11LvaF1VQ%3D%3D")
+
+	token := &Token{}
+	resp := &Response{
+		Data: token,
+	}
+	respHeader := http.Header{}
+	err = p.hb.SetQueryParams(u).Get(qrcodeUrl).GetRespHeader(&respHeader).JSONResponse(&resp)
+	if err != nil {
+		return "", err
+	}
+	if resp.Status != 2000000 {
+		return "", errors.New(resp.Message)
+	}
+	p.hb.ParseCookie(respHeader)
+	return token.Members.Token, nil
+}
+
+func (p *PluginImpl) qrcodeData(token string) string {
+	return fmt.Sprintf("https://su.quark.cn/4_eMHBJ?token=%s&client_id=386&sch=pckk@other_ch&sve=3.20.0&ssb=weblogin&uc_param_str=&uc_biz_str=S:custom|OPT:SAREA@0|OPT:IMMERSIVE@1|OPT:BACK_BTN_STYLE@0", token)
+}
+
 // GetAuth return how to auth
 // 1.FormData input data
 // 2.Callback use url callback auth,like oauth
 // 3.Scanqrcode,return qrcode image to auth
 func (p *PluginImpl) GetAuth() (*plugin.Auth, error) {
 	slog.Info("GetAuth")
+	token, err := p.getQrcodeToken()
+	if err != nil {
+		return nil, err
+	}
+	qrdataUrl := p.qrcodeData(token)
 	auth := &plugin.Auth{
 		AuthMethods: []*plugin.AuthMethod{
 			{
@@ -72,6 +180,16 @@ func (p *PluginImpl) GetAuth() (*plugin.Auth, error) {
 				},
 				HelpDocUrl: "",
 			},
+			{
+				Method: &plugin.AuthMethod_Scanqrcode{
+					Scanqrcode: &plugin.Scanqrcode{
+						QrcodeExpireTime:   uint64(time.Now().Add(time.Minute * 2).Unix()),
+						QrcodeImageParam:   token,
+						QrcodeImageContent: qrdataUrl,
+					},
+				},
+				HelpDocUrl: "",
+			},
 		},
 	}
 	return auth, nil
@@ -82,23 +200,57 @@ func (p *PluginImpl) GetAuth() (*plugin.Auth, error) {
 // assert authMethod.Method's type to check auth is finished,return auth data and expired time if authed
 func (p *PluginImpl) CheckAuthMethod(authMethod *plugin.AuthMethod) (*plugin.AuthData, error) {
 	slog.Debug("CheckAuthMethod", "authMethod", authMethod)
-	authDataBytes, err := authMethod.Method.(*plugin.AuthMethod_Formdata).Formdata.MarshalVT()
-	if err != nil {
-		return nil, err
+
+	var err error
+	var cookies []*http.Cookie
+	switch authMethod.Method.(type) {
+	case *plugin.AuthMethod_Formdata:
+		authDataBytes := authMethod.Method.(*plugin.AuthMethod_Formdata).Formdata.FormItems[0].Value.(*plugin.Formdata_FormItem_StringValue).StringValue.Value
+		for _, cookie := range strings.Split(authDataBytes, ";") {
+			sp := strings.Split(strings.TrimSpace(cookie), "=")
+			if len(sp) != 2 {
+				continue
+			}
+			cookies = append(cookies, &http.Cookie{Name: sp[0], Value: sp[1]})
+		}
+	case *plugin.AuthMethod_Scanqrcode:
+		scanCode := authMethod.Method.(*plugin.AuthMethod_Scanqrcode).Scanqrcode
+		cookies, err = p.checkQrcode(scanCode.QrcodeImageParam)
+		if err != nil {
+			return nil, err
+		}
+		if cookies == nil {
+			return nil, nil
+		}
 	}
-	return &plugin.AuthData{AuthDataBytes: authDataBytes}, nil
+	cookiesBytes, err := json.Marshal(cookies)
+	return &plugin.AuthData{AuthDataBytes: cookiesBytes}, err
 }
 
 // CheckAuthData use authDataBytes to uath
 // you must store auth data to *PluginImpl
 func (p *PluginImpl) CheckAuthData(authDataBytes []byte) error {
 	slog.Debug("CheckAuthData", "authDataBytes", authDataBytes)
-	formdata := &plugin.Formdata{}
-	if err := formdata.UnmarshalVT(authDataBytes); err != nil {
-		return err
+	var cookies []*http.Cookie
+	err := json.Unmarshal(authDataBytes, &cookies)
+	if err != nil {
+		slog.Error("parse cookide json failed", "err", err)
+		formdata := &plugin.Formdata{}
+		err = formdata.UnmarshalVT(authDataBytes)
+		if err != nil {
+			return err
+		}
+		cookieStr := formdata.FormItems[0].Value.(*plugin.Formdata_FormItem_StringValue).StringValue.Value
+		for _, cookie := range strings.Split(cookieStr, ";") {
+			sp := strings.Split(strings.TrimSpace(cookie), "=")
+			if len(sp) != 2 {
+				continue
+			}
+			cookies = append(cookies, &http.Cookie{Name: sp[0], Value: sp[1]})
+		}
 	}
-	p.cookie = formdata.FormItems[0].Value.(*plugin.Formdata_FormItem_StringValue).StringValue.Value
-	err := p.request("/config", http.MethodGet, nil, nil, nil)
+	p.cookies = cookies
+	err = p.request("/config", http.MethodGet, nil, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -270,8 +422,7 @@ func (p *PluginImpl) request(uri string, method string, u url.Values, reqData, r
 		u = url.Values{}
 	}
 	p.ratelimit.Wait("")
-	u.Add("pr", pr)
-	u.Add("fr", "pc")
+	cb := p.hb.SetCookies(p.cookies).SetQueryParams(u).SetMethod(method).Request(fmt.Sprintf("%s%s", api, uri))
 	var body io.Reader
 	if reqData != nil {
 		data, err := json.Marshal(reqData)
@@ -279,43 +430,14 @@ func (p *PluginImpl) request(uri string, method string, u url.Values, reqData, r
 			return err
 		}
 		body = bytes.NewBuffer(data)
+		cb = cb.SetBody(body)
 	}
-	req, err := http.NewRequest(method, fmt.Sprintf("%s%s?%s", api, uri, u.Encode()), body)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Cookie", p.cookie)
-	req.Header.Set("Accept", "application/json, text/plain, */*")
-	req.Header.Set("Referer", referer)
-	req.Header.Set("User-Agent", userAgent)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	for _, cookie := range resp.Cookies() {
-		if cookie.Name == "__puus" {
-			h := http.Header{}
-			h.Add("Cookie", p.cookie)
-			cookieStrs := []string{}
-			r := http.Request{Header: h}
-			for _, oldCookie := range r.Cookies() {
-				oldCookieStr := oldCookie.String()
-				if oldCookie.Name == "__puus" {
-					oldCookieStr = cookie.String()
-				}
-				cookieStrs = append(cookieStrs, oldCookieStr)
-			}
-			p.cookie = strings.Join(cookieStrs, ";")
-		}
-	}
-	respBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
+
 	response := Response{
 		Data: respData,
 	}
-	err = json.Unmarshal(respBytes, &response)
+	respHeader := http.Header{}
+	err := cb.GetRespHeader(&respHeader).JSONResponse(&response)
 	if err != nil {
 		return err
 	}
@@ -324,7 +446,6 @@ func (p *PluginImpl) request(uri string, method string, u url.Values, reqData, r
 		return fmt.Errorf("%s", response.Message)
 	}
 
-	defer resp.Body.Close()
 	return nil
 }
 

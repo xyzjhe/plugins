@@ -3,8 +3,8 @@ package main
 import "github.com/medianexapp/plugin_api/plugin"
 
 type Response struct {
-	Status  int
-	Code    int
+	Status  int `json:"status"`
+	Code    int ``
 	Message string
 	Data    any
 }
@@ -50,4 +50,16 @@ var resolutionMap = map[string]plugin.FileResource_Resolution{
 	"super": plugin.FileResource_FHD,
 	"high":  plugin.FileResource_HD,
 	"low":   plugin.FileResource_LD,
+}
+
+type Token struct {
+	Members struct {
+		Token string `json:"token"`
+	} `json:"members"`
+}
+
+type ServiceTocket struct {
+	Members struct {
+		Ticket string `json:"service_ticket"`
+	} `json:"members"`
 }

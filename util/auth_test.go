@@ -2,6 +2,8 @@ package util
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"testing"
 )
 
@@ -31,6 +33,7 @@ func TestAuth(t *testing.T) {
 func TestGetQrcode(t *testing.T) {
 	res, err := GetAuthQrcode("alipan")
 	if err != nil {
+		fmt.Println(errors.Unwrap(err))
 		t.Errorf("GetAuthQrcode failed: %v", err)
 	}
 	t.Log(string(res))
