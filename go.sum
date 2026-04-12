@@ -90,6 +90,14 @@ github.com/medianexapp/plugin_api v0.0.25-0.20260412064200-53cbb8125872 h1:1yr7g
 github.com/medianexapp/plugin_api v0.0.25-0.20260412064200-53cbb8125872/go.mod h1:TqjZrkKEFo2UooZkkCQSJ9rj6W5tP9SOSJUZeFYKw7E=
 github.com/medianexapp/plugin_api v0.0.25-0.20260412093939-3272c89b71d4 h1:fnlMWb/rvja5mxxrk/oJL16M6hGeJ9IZV91BLprYwmE=
 github.com/medianexapp/plugin_api v0.0.25-0.20260412093939-3272c89b71d4/go.mod h1:TqjZrkKEFo2UooZkkCQSJ9rj6W5tP9SOSJUZeFYKw7E=
+github.com/medianexapp/plugin_api v0.0.25 h1:KsI9Z/YGrSE6m6hTQGkuNGtW9oEWKQaBGzXi5ZG/V54=
+github.com/medianexapp/plugin_api v0.0.25/go.mod h1:TqjZrkKEFo2UooZkkCQSJ9rj6W5tP9SOSJUZeFYKw7E=
+github.com/medianexapp/plugin_api v0.0.26 h1:ixUcsD79TcJr9VdKfWir/1juyqbKO91qrB4hZd6a9K0=
+github.com/medianexapp/plugin_api v0.0.26/go.mod h1:TqjZrkKEFo2UooZkkCQSJ9rj6W5tP9SOSJUZeFYKw7E=
+github.com/medianexapp/plugin_api v0.0.28 h1:FbBGpFETw1hx+ijW89ryeLdZd32TpvAjZ9A8+DwzpzM=
+github.com/medianexapp/plugin_api v0.0.28/go.mod h1:TqjZrkKEFo2UooZkkCQSJ9rj6W5tP9SOSJUZeFYKw7E=
+github.com/medianexapp/plugin_api v0.0.30 h1:uJZ8NvFrE1E1VXHSbRY5BVPl6lP1wdXN0PIh0+seycs=
+github.com/medianexapp/plugin_api v0.0.30/go.mod h1:TqjZrkKEFo2UooZkkCQSJ9rj6W5tP9SOSJUZeFYKw7E=
 github.com/medianexapp/sftp v1.13.10-0.20250425113120-4ffdd4c8163a h1:a1AMBh4Glxjl8gb9JW1kJ1W92cgBBkLlnZHCOAPBjQg=
 github.com/medianexapp/sftp v1.13.10-0.20250425113120-4ffdd4c8163a/go.mod h1:BhBMCAsN8EaWmFxpa/Au+jX8fG8CLFKXs8LOjksAFH0=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
