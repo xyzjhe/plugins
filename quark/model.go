@@ -3,10 +3,10 @@ package main
 import "github.com/medianexapp/plugin_api/plugin"
 
 type Response struct {
-	Status  int `json:"status"`
-	Code    int ``
-	Message string
-	Data    any
+	Status  int    `json:"status"`
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    any    `json:"data"`
 }
 
 type FileData struct {

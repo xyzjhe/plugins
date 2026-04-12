@@ -30,7 +30,6 @@ const (
 )
 
 type PluginImpl struct {
-	cookie    string
 	cookies   []*http.Cookie
 	client    *httpclient.Client
 	hb        *httpclient.Builder
@@ -48,8 +47,11 @@ func NewPluginImpl() *PluginImpl {
 
 	return &PluginImpl{
 		hb: httpclient.NewBuilder().SetUserAgent(userAgent).
-			SetHeader("referer", "https://pan.quark.cn/").
-			SetHeader("origin", "https://pan.quark.cn/").SetQueryParam("pr", "ucpro").SetQueryParam("fr", "pc").SetQueryParam("platform", "pc"),
+			SetHeader("Referer", "https://pan.quark.cn/").
+			SetHeader("Origin", "https://pan.quark.cn").
+			SetQueryParam("pr", "ucpro").
+			SetQueryParam("fr", "pc").
+			SetQueryParam("platform", "pc"),
 		client:    httpclient.NewClient(httpclient.WithUserAgent(userAgent)),
 		ratelimit: ratelimit.New(limitConfigMap),
 	}
@@ -348,6 +350,11 @@ func (p *PluginImpl) GetFileResource(req *plugin.GetFileResourceRequest) (*plugi
 	if err != nil {
 		return nil, err
 	}
+	cookieStrs := []string{}
+	for _, cookie := range p.cookies {
+		cookieStrs = append(cookieStrs, fmt.Sprintf("%s=%s", cookie.Name, cookie.Value))
+	}
+	cookie := strings.Join(cookieStrs, "; ")
 	if len(respData) == 1 {
 		expireTime, err := getExpires(respData[0].DownloadUrl)
 		if err != nil {
@@ -358,7 +365,7 @@ func (p *PluginImpl) GetFileResource(req *plugin.GetFileResourceRequest) (*plugi
 				Resolution:   plugin.FileResource_Original,
 				ResourceType: plugin.FileResource_Video,
 				Header: map[string]string{
-					"Cookie":     p.cookie,
+					"Cookie":     cookie,
 					"Referer":    referer,
 					"User-Agent": userAgent,
 				},
@@ -405,7 +412,7 @@ func (p *PluginImpl) GetFileResource(req *plugin.GetFileResourceRequest) (*plugi
 				Resolution:   resolutionMap[item.Resolution],
 				ResourceType: plugin.FileResource_Video,
 				Header: map[string]string{
-					"Cookie":     p.cookie,
+					"Cookie":     cookie,
 					"Referer":    referer,
 					"User-Agent": userAgent,
 				},
@@ -437,7 +444,12 @@ func (p *PluginImpl) request(uri string, method string, u url.Values, reqData, r
 		Data: respData,
 	}
 	respHeader := http.Header{}
-	err := cb.GetRespHeader(&respHeader).JSONResponse(&response)
+	respBytes, err := cb.GetRespHeader(&respHeader).BytesResponse()
+	if err != nil {
+		return err
+	}
+	slog.Info("resp bytes", "data", string(respBytes))
+	err = json.Unmarshal(respBytes, &response)
 	if err != nil {
 		return err
 	}
