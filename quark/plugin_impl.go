@@ -97,15 +97,7 @@ func (p *PluginImpl) checkQrcode(param string) ([]*http.Cookie, error) {
 		slog.Warn("token is valid", "msg", resp.Message)
 		return nil, errors.New(resp.Message)
 	}
-	// TODO set cookie
-	respHeader3 := http.Header{}
-	_, err = p.hb.
-		Get("https://pan.quark.cn/account/info").GetRespHeader(&respHeader3).
-		BytesResponse()
-	if err != nil {
-		slog.Error("get account info failed", "err", err)
-		return nil, err
-	}
+
 	respHeader2 := http.Header{}
 	// https://pan.quark.cn/account/info?st=sta2c633397o8vz9iio35n2ki6ys5z84&lw=scan
 	_, err = p.hb.SetQueryParam("st", ticket.Members.Ticket).
