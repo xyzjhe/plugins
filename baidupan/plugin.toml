@@ -3,5 +3,5 @@ name = "BaiduPan"
 desc = "baidu pan driver plugin"
 icon = "baidupan.png"
 author = ["labulakalia(labulakalia@gmail.com)"]
-version = "v0.0.3"
+version = "v0.0.4"
 changelog = ["fix get qrcode data from localhost"]

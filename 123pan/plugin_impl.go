@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"time"
 
+	_ "github.com/labulakalia/wazero_net/wasi/http"
 	"github.com/medianexapp/plugin_api/httpclient"
 	"github.com/medianexapp/plugin_api/plugin"
 	"github.com/medianexapp/plugin_api/ratelimit"
-	// _ "github.com/labulakalia/wazero_net/wasi/http" // if you need http import this
 )
 
 type PluginImpl struct {
