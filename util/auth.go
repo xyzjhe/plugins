@@ -10,25 +10,15 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/medianexapp/plugin_api/httpclient"
 	"github.com/medianexapp/plugin_api/plugin"
 )
 
-//go:embed env.json
-var envData []byte
-
-type Env struct {
-	ServerAddr string `json:"server_addr"`
-}
-
 func init() {
-	env := &Env{
-		ServerAddr: "http://127.0.0.1:19971",
-	}
-	json.Unmarshal(envData, env)
-	ServerAddr = env.ServerAddr
+	ServerAddr = os.Getenv("SERVER_ADDR")
 }
 
 var (
