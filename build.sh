@@ -81,17 +81,12 @@ function build() {
 }
 
 
-if [[ -z $SERVER_ADDR ]];then
-    echo "vars SERVER_ADDR is empty"
-    exit 1
-fi
 if [[ -z $SECRET_KEY ]];then
     echo "vars SECRET_KEY is empty"
     exit 1
 fi
-echo "{\"server_addr\": \"${SERVER_ADDR}\"}" > util/env.json
+
 for id in `ls -d */ | grep -v 'util' |sed 's/\///g'`
 do
     build $id
 done
-echo "{}" > util/env.json
