@@ -39,10 +39,11 @@ function build() {
     dir=$1
     version=`grep ^version $dir/plugin.toml|awk -F'"' '{print $2}'`
     echo "$dir current version: "$version
-    remoteVersion=`curl -s  ${SERVER_ADDR}/api/get_plugin_version/$dir`
-    if [[ $? -ne 0 ]]; then
-        echo "Failed to get $dir remote version"
-        exit 1
+    res=`curl -s -w "CODE:%{http_code}\n" ${SERVER_ADDR}/api/get_plugin_version/$dir`
+    code=$(echo $res | grep CODE|awk -F':' '{print $2}')
+    remoteVersion=""
+    if [[ $code -eq 200 ]]; then
+        remoteVersion=$(echo $res | grep -v CODE| tr -d '[:space:]')
     fi
     echo "$dir remote version: "$remoteVersion
     needUpload=0
